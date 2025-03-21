@@ -1,0 +1,53 @@
+{
+   "type": "FeatureCollection",
+   "features": [
+  {
+    "type": "Feature",
+    "geometry": {
+       "type": "Point",
+       "coordinates":  [ -79.781569,43.2000107 ]
+    },
+    "properties": {
+    "Station":"GFL Lagoon",
+    "Measurements":"TRS",
+    "Comments":""
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+       "type": "Point",
+       "coordinates":  [ -79.770316,43.200067 ]
+    },
+    "properties": {
+    "Station":"GFL North",
+    "Measurements":"TRS",
+    "Comments":"next to 29247"
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+       "type": "Point",
+       "coordinates":  [ -79.76879,43.193272 ]
+    },
+    "properties": {
+    "Station":"GFL SouthEast",
+    "Measurements":"TRS",
+    "Comments":""
+    }
+  },
+  {
+    "type": "Feature",
+    "geometry": {
+       "type": "Point",
+       "coordinates":  [ -79.77097638,43.20029975 ]
+    },
+    "properties": {
+    "Station":"STN29247",
+    "Measurements":"PM10, WD, WS, ATEM, RH, Rain",
+    "Comments":""
+    }
+  }
+]
+}
