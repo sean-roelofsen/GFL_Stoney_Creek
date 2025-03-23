@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Air Monitoring @ GFL Stoney Creek</title>
+  <meta property="og:description" content="Use extrusions to display buildings' height in 3D." />
+  <meta charset='utf-8'>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css' />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
+  <script src='https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js'></script>
+  <script src='https://unpkg.com/@turf/turf/turf.min.js'></script> <!-- Turf.js for buffers -->
+  <!-- Pannellum from jsDelivr CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+
+
+  <style>
+      body, html, #map {
+          height: 100%;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+      }
+      .map-overlay {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 1;
+          background: white;
+          padding: 10px;
+          border-radius: 3px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+          width: 265px; /* Adjusted width (default might be too wide) */
+          max-width: 280px; /* Prevent it from getting too wide */
+      }
+      .collapsed {
+          display: none;
+      }
+      #filterSelect {
+          width: 100%;
+          padding: 5px;
+          margin-top: 5px;
+      }
+      .layer-toggle {
+          margin-top: 5px;
+      }
+      .loading-spinner {
+          border: 8px solid #f3f3f3;
+          border-top: 8px solid #3498db;
+          border-radius: 50%;
+          width: 60px;
+          height: 60px;
+          animation: spin 2s linear infinite;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 1000;
+      }
+      @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+      }
+      .home-button {
+          position: absolute;
+          top: 100px;
+          left: 10px;
+          z-index: 1;
+          background: white;
+          border: none;
+          padding: 10px;
+          border-radius: 3px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+          cursor: pointer;
+      }
+      .draggable-marker-home {
+          position: absolute;
+          top: 150px;
+          left: 10px;
+          z-index: 1;
+          background: white;
+          border: none;
+          padding: 10px;
+          border-radius: 3px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+          cursor: pointer;
+          font-size: 20px;
+      }
+      .coordinates {
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    position: absolute;
+    bottom: 35px;    /* Keep it near the bottom */
+    left: 10px;      /* Move it to the left */
+    padding: 10px;
+    margin: 0;
+    font-size: 14px;
+    line-height: 20px;
+    border-radius: 5px;
+    display: none;   /* It will only be displayed when marker is dragged */
+    z-index: 1000;   /* Keep it on top of other elements */
+}
+
+      .coordinates a {
+          color: #fff;
+          text-decoration: underline;
+      }
+      #hover-popup {
+          position: absolute;
+          background: white;
+          border-radius: 3px;
+          padding: 5px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+          pointer-events: none;
+          display: none;
+          z-index: 10;
+      }
+      .legend {
+          background: white;
+          padding: 10px;
+          font-size: 12px;
+          border-radius: 3px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+          position: absolute;
+          bottom: 30px;
+          right: 10px;
+          z-index: 1;
+      }
+      .legend-item {
+          display: flex;
+          align-items: center;
+          margin-bottom: 5px;
+      }
+      .legend-color {
+          width: 15px;
+          height: 15px;
+          margin-right: 5px;
+      }
+      .divider {
+          margin: 10px 0;
+          border-top: 1px solid #ccc;
+      }
+      .toggle-button {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 2;
+          background: white;
+          border: none;
+          padding: 5px;
+          cursor: pointer;
+          border-radius: 3px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      }
+      
+      /* Style for the legend toggle button */
+.toggle-button-legend {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    z-index: 2;
+    background: transparent; /* Make the background transparent */
+    border: none; /* Remove border */
+    padding: 0; /* Remove any padding */
+    cursor: pointer;
+    font-size: 16px;
+    color: #000; /* Set text color to ensure visibility */
+}
+
+
+    #legendContent.collapsed {
+    display: none; /* Hide content when collapsed */
+}
+
+.popup-gallery {
+    display: flex;
+    overflow-x: auto; /* Horizontal scrolling if images overflow */
+    gap: 5px; /* Space between images */
+}
+
+.popup-gallery img {
+    width: 100px; /* Width of each thumbnail */
+    height: 100px; /* Height of each thumbnail */
+    object-fit: cover; /* Crop images to fit the dimensions */
+    border: 1px solid #ccc; /* Optional border around images */
+    border-radius: 5px; /* Optional rounded corners */
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2); /* Optional shadow for images */
+}
+
+.custom-geolocate-control {
+    position: absolute;
+    top: 210px;  /* Position below the draggable marker */
+    left: 10px;  /* Position to the far left */
+    z-index: 2;
+}
+
+.search-container {
+        position: absolute;
+        top: 250px; /* Adjust to be below Geolocator */
+        left: 10px;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 18px;
+        padding: 3px 5px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        transition: width 0.3s;
+        width: 22px;
+        overflow: hidden;
+    }
+
+    .search-container.expanded {
+        width: 280px;
+    }
+
+    .search-icon {
+        cursor: pointer;
+        border-radius: 50%;
+        margin-right: 2px;
+        transition: background 0.3s;
+    }
+
+    .search-icon:hover {
+        background: #f0f0f0;
+    }
+
+    .search-box {
+        flex-grow: 1;
+    }
+
+    .search-box input {
+        border: none;
+        outline: none;
+        width: 100%;
+        padding: 5px;
+        border-radius: 4px;
+    }
+
+    .clear-button {
+        cursor: pointer;
+        padding: 0 5px;
+        color: orange;
+        font-weight: bold;
+        display: none; /* Hidden initially */
+    }
+
+    .search-container.expanded .clear-button {
+        display: block; /* Only visible when the search box is expanded */
+    }
+
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<button class="toggle-button" id="toggleButton">▲</button>
+<div class="map-overlay" id="mapOverlay">
+  <div><strong>Basemaps</strong></div>
+  
+  <div style="background-color: #f0f0f0; padding: 5px; border: 1px solid #b0b0b0; border-radius: 4px;">
+    <label><input type="radio" name="basemap" value="esri" checked> ESRI Satellite Imagery</label><br>
+    <label><input type="radio" name="basemap" value="osm"> OpenStreetMap</label><br>
+    <label><input type="checkbox" id="buildings-toggle" checked> 3D Buildings</label><br>
+  </div>
+  
+  <div style="background-color: #ffffff; padding: 5px;">
+    <label for="filterSelect">Filter by MPAC Land Use Type:</label>
+    <select id="filterSelect">
+      <option value="All">All</option>
+    </select><br>
+    <label class="layer-toggle"><input type="checkbox" id="ham-emitters-toggle"> Show all Land Use Types</label><br>
+  </div>
+  
+  <div style="background-color: #f0f0f0; padding: 5px; border: 1px solid #b0b0b0; border-radius: 4px;">
+    <label class="layer-toggle"><input type="checkbox" id="boundary-toggle" checked> GFL Stoney Creek Property</label><br>
+   <!-- <label class="layer-toggle"><input type="checkbox" id="stelco-operations-toggle"> Stelco Operations Areas</label><br>
+    <label class="layer-toggle"><input type="checkbox" id="emissions-sources-toggle"> Stelco Emissions Sources</label><br>
+    <label class="layer-toggle"><input type="checkbox" id="other-toggle"> Other Industry (OPG, I-Oil)</label><br>
+    -->
+  </div>
+  
+  <div style="background-color: #ffffff; padding: 5px;">
+    <label class="layer-toggle"><input type="checkbox" id="proposed-monitoring-toggle" checked> Air Monitoring Locations</label><br>
+    <label class="layer-toggle"><input type="checkbox" id="buffers-toggle"> Buffers (500-1000-1500m)</label><br>
+  </div>
+</div>
+
+<div class="loading-spinner" id="loading-spinner"></div>
+<button class="home-button" id="homeButton"><i class="fas fa-home"></i></button>
+<button class="draggable-marker-home" id="draggableMarkerHome"><i class="fas fa-map-marker-alt"></i></button>
+<div id="hover-popup"></div>
+
+<div class="legend">
+    <button class="toggle-button-legend" id="toggleButtonLegend">▼</button>
+    <div id="legendContent">
+        <div><strong>MPAC Land Use:</strong></div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #d53e4f;"></div>Residential
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #fc8d59;"></div>Industrial
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #fee08b;"></div>Farm
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #e6f598;"></div>Commercial
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #99d594;"></div>Special and Exempt
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: #3288bd;"></div>Vacant Land
+        </div>
+    </div> 
+</div>
+
+
+
+<pre id="coordinates" class="coordinates"></pre>
+
+<!-- Search Container -->
+<div class="search-container" id="searchContainer">
+    <div class="search-icon" id="searchIcon">🔍</div>
+    <div class="search-box">
+        <input type="text" id="addressSearch" placeholder="Search address...">
+    </div>
+    <div class="clear-button" id="clearButton">✖</div> <!-- Clear Button -->
+</div>
+
+
+
+
+
+
+<script>
+    const MAPTILER_KEY = 'u5NbqWtpP6uBHml4hWYU';
+    const initialCenter = [-79.7764, 43.1968]; 
+    // Adjust zoom level dynamically based on screen width
+    const initialZoom = window.innerWidth <= 768 ? 13.5 : 14.5;
+    const pitchAngle = 45;
+    const initialBearing = 16;
+
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: {
+            'version': 8,
+            'glyphs': 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+            'sources': {
+                'osm-tiles': {
+                    'type': 'raster',
+                    'tiles': ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                    'tileSize': 256,
+                    'minzoom': 0,
+                    'maxzoom': 19
+                },
+                'esri-tiles': {
+                    'type': 'raster',
+                    'tiles': ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+                    'tileSize': 256,
+                    'minzoom': 0,
+                    'maxzoom': 19
+                },
+                'ham-emitters': {
+                    'type': 'geojson',
+                    'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/MPAC_Land_Use_Cleaned.geojson'
+                },
+                
+                
+                'openmaptiles': {
+                    'type': 'vector',
+                    'url': `https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}`
+                },
+                
+                'boundary': {
+                    'type': 'geojson',
+                    'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/GFL_Property.geojson'
+                },
+               // 'stelco-operations': {
+                 //   'type': 'geojson',
+                //    'data': 'https://raw.githubusercontent.com/sean-roelofsen/StelcoLEW/refs/heads/main/stelco_operations_2.geojson'
+               // },
+             //   'emissions-sources': {
+               //     'type': 'geojson',
+                 //   'data': 'https://raw.githubusercontent.com/sean-roelofsen/StelcoLEW/refs/heads/main/emissions_sources_2.geojson'
+              //  },
+        //        'other': {
+          //          'type': 'geojson',
+            //        'data': 'https://raw.githubusercontent.com/sean-roelofsen/StelcoLEW/refs/heads/main/Other_Industries_2.geojson'
+            //    },
+                //'station-lines': {
+                  //  'type': 'geojson',
+                    //'data': 'https://raw.githubusercontent.com/sean-roelofsen/StelcoLEW/refs/heads/main/station_lines.geojson'  // Vertical lines for stations
+                //},
+                'proposed-monitoring': {
+                    'type': 'geojson',
+                    'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/stations.geojson'
+                }
+            },
+            'layers': [
+                {
+                    'id': 'background',
+                    'type': 'background',
+                    'paint': {
+                        'background-color': '#e0dfdf'
+                    }
+                },
+                {
+                    'id': 'esri-tiles',
+                    'type': 'raster',
+                    'source': 'esri-tiles',
+                    'layout': {
+                        'visibility': 'visible'
+                    }
+                },
+
+
+                {
+                    'id': 'osm-tiles',
+                    'type': 'raster',
+                    'source': 'osm-tiles',
+                    'layout': {
+                        'visibility': 'none'
+                    }
+                },
+                
+                {
+    'id': 'ham-emitters',
+    'type': 'fill',
+    'source': 'ham-emitters',
+    'layout': {
+        'visibility': 'none'
+    },
+    'paint': {
+        'fill-color': [
+            'match',
+            ['get', 'PROPERTY_3'],
+            'Residential', '#d53e4f',
+            'Industrial', '#fc8d59',
+            'Farm', '#fee08b',
+            'Commercial', '#e6f598',
+            'Special and Exempt', '#99d594',
+            'Vacant Land', '#3288bd',
+            '#ccc'
+        ],
+        'fill-opacity': 0.5
+    }
+},
+{
+    'id': 'ham-emitters-outline',
+    'type': 'line',
+    'source': 'ham-emitters',
+    'layout': {
+        'visibility': 'none'
+    },
+    'paint': {
+        'line-color': 'black', // Thin black border
+        'line-width': 0.5, // Adjust the thickness of the border
+        'line-opacity': 1.0 // Fully opaque border
+    }
+},
+
+                {
+                    'id': 'fused-buildings',
+                    'type': 'fill-extrusion',
+                    'source': 'openmaptiles',
+                    'source-layer': 'building',
+                    'minzoom': 15,
+                    'paint': {
+                        'fill-extrusion-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'render_height'], 0, 'lightgray', 200, 'royalblue', 400, 'lightblue'
+                        ],
+                        'fill-extrusion-height': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            15,
+                            0,
+                            16,
+                            ['get', 'render_height']
+                        ],
+                        'fill-extrusion-base': 0,
+                        'fill-extrusion-opacity': 0.6
+                    }
+                },
+                
+
+
+               
+               {
+    'id': 'boundary',
+    'type': 'fill',
+    'source': 'boundary',
+    'layout': {
+        'visibility': 'visible'
+    },
+    'paint': {
+        'fill-color': 'rgba(255, 0, 255, 0.1)',
+        'fill-outline-color': 'rgba(255, 0, 255, 1)'
+    }
+},
+{
+    'id': 'boundary-outline',
+    'type': 'line',
+    'source': 'boundary',
+    'layout': {
+        'visibility': 'visible'
+    },
+    'paint': {
+        'line-color': 'rgba(255, 0, 255, 1)',  // Same color as your existing outline
+        'line-width': 4,  // Adjust this value to make it thicker
+        'line-opacity': 1.0  // Fully opaque line
+    }
+},
+{
+    'id': 'boundary-labels',
+    'type': 'symbol',
+    'source': 'boundary',
+    'layout': {
+        'visibility': 'visible',
+        'text-field': [
+            'case',
+            ['all', ['has', 'Owner'], ['has', 'Status']],
+            ['format', 
+                ['get', 'Owner'], {}, 
+                '\n', {},
+                ['get', 'Status'], {}
+            ],
+            ['get', 'Owner']  // If only 'Owner' exists
+        ],
+        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+        'text-size': 16,
+        'text-offset': [0, 0],
+        'text-anchor': 'top'
+    },
+    'paint': {
+        'text-color': '#000000',
+        'text-halo-color': '#FFFFFF',
+        'text-halo-width': 2
+    },
+    'maxzoom': 15
+},
+
+/*
+                {
+                    'id': 'other',
+                    'type': 'fill',
+                    'source': 'other',
+                    'layout': {
+                        'visibility': 'none'
+                    },
+                    'paint': {
+                        'fill-color': 'rgba(255, 120, 0, 0.5)',
+                        'fill-outline-color': 'rgba(255, 120, 0, 0.5)'
+                    }
+                },
+                {
+                    'id': 'other-labels',
+                    'type': 'symbol',
+                    'source': 'other',
+                    'layout': {
+                        'visibility': 'none',
+                        'text-field': '{Owner}',
+                        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                        'text-size': 14,
+                        'text-offset': [0, 1.5],
+                        'text-anchor': 'top'
+                    },
+                    'paint': {
+                        'text-color': '#000000',
+                        'text-halo-color': '#FFFFFF',
+                        'text-halo-width': 2
+                    },
+                    'maxzoom': 15 // Labels disappear when zoomed in beyond level 14
+                },
+                {
+                    'id': 'other-outline',
+                    'type': 'line',
+                    'source': 'other',
+                    'layout': {
+                        'visibility': 'none'  // Initially off, like the fill layer
+                    },
+                    'paint': {
+                        'line-color': '#000000',  // Simple black outline
+                        'line-width': 1  // Thickness of the outline
+                    }
+                },
+*/
+  /*
+                {
+                    'id': 'stelco-operations',
+                    'type': 'fill',
+                    'source': 'stelco-operations',
+                    'layout': {
+                        'visibility': 'none'
+                    },
+                    'paint': {
+                        'fill-color': [
+                            'match',
+                            ['get', 'Area'],
+                            'Industrial & Sanitary Lagoon', '#d9d9d9',  // Light gray for AreaName1
+                            'Secondary Materials', '#cfcfcf',  // Light gray for AreaName2
+                            'Coke-Making & By-Products', '#bfbfbf',  // Light gray for AreaName3
+                            'Raw Materials', '#b5b5b5',  // Light gray for AreaName4
+                            'Industrial Effluent Lagoon', '#ababab',  // Light gray for AreaName5
+                            'Iron Making', '#a1a1a1',  // Light gray for AreaName6
+                            'Steel Making', '#979797',  // Light gray for AreaName7
+                            'Steel Slag Handling', '#8d8d8d',  // Light gray for AreaName8
+                            'Industrial Landfill', '#838383',  // Light gray for AreaName9
+                            '#cccccc'  // Default light gray if no match
+                        ],
+                        'fill-opacity': 0.25  // 50% opacity
+                    }
+                },
+                {
+    'id': 'stelco-operations-outline',
+    'type': 'line',
+    'source': 'stelco-operations',
+    'layout': {
+        'visibility': 'none'  // Initially off, like the fill layer
+    },
+    'paint': {
+        'line-color': [
+            'match',
+            ['get', 'Area'],
+            'Industrial & Sanitary Lagoon', '#ff0000',  // Red
+            'Secondary Materials', '#00ff00',  // Green
+            'Coke-Making & By-Products', '#0000ff',  // Blue
+            'Raw Materials', '#ffa500',  // Orange
+            'Industrial Effluent Lagoon', '#800080',  // Purple
+            'Iron Making', '#ff00ff',  // Pink
+            'Steel Making', '#008080',  // Teal
+            'Steel Slag Handling', '#ffff00',  // Yellow
+            'Industrial Landfill', '#000000',  // Black
+            'Wastewater Discharge', '#ff0000', 
+            '#444444'  // Default dark gray if no match
+        ],
+        'line-width': 2  // Thickness of the outline
+    }
+                },
+                {
+                    'id': 'stelco-operations-labels',
+                    'type': 'symbol',
+                    'source': 'stelco-operations',
+                    'layout': {
+                        'visibility': 'none',
+                        'text-field': ['get', 'Area'],
+                        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                        'text-size': 12,
+                        'text-offset': [0, 0.5],
+                        'text-anchor': 'top'
+                    },
+                    'paint': {
+                        'text-color': 'black',
+                        'text-halo-color': 'white',
+                        'text-halo-width': 2
+                    }
+                },
+
+*/
+/*
+                {
+                    'id': 'emissions-sources',
+                    'type': 'circle',
+                    'source': 'emissions-sources',
+                    'layout': {
+                        'visibility': 'none'
+                    },
+                    'paint': {
+                        'circle-radius': 6,
+                        'circle-color': '#FFA500',
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#FFFFFF'
+                    }
+                },
+                {
+                    'id': 'emissions-sources-labels',
+                    'type': 'symbol',
+                    'source': 'emissions-sources',
+                    'layout': {
+                        'visibility': 'none',
+                        'text-field': '{Name}',
+                        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                        'text-size': 14,
+                        'text-offset': [0, 1.5],
+                        'text-anchor': 'top'
+                    },
+                    'paint': {
+                        'text-color': '#000000',
+                        'text-halo-color': '#FFFFFF',
+                        'text-halo-width': 2
+                    }
+                },
+ 
+*/
+ {
+    'id': 'proposed-monitoring',
+    'type': 'circle',
+    'source': 'proposed-monitoring',
+    'layout': {
+        'visibility': 'visible' // Layer is initially visible
+    },
+    'paint': {
+        'circle-radius': 6,  // All circles have the same size
+        'circle-stroke-width': 2,
+        'circle-color': 'red',  // All circles are red
+        'circle-stroke-color': 'white'  // White outline for all
+    }
+},
+{
+    'id': 'proposed-monitoring-labels',
+    'type': 'symbol',
+    'source': 'proposed-monitoring',
+    'layout': {
+        'visibility': 'visible',
+        'text-field': '{Station}', // Display the "Station" property as the label
+        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+        'text-size': 16,
+        'text-offset': [0, -2],
+        'text-anchor': 'top'
+    },
+    'paint': {
+        'text-color': 'red',
+        'text-halo-color': 'white',
+        'text-halo-width': 2
+    }
+},
+
+
+    
+
+
+
+
+
+
+
+                
+            ] 
+        },
+        center: initialCenter,
+        zoom: initialZoom,
+        pitch: pitchAngle,
+        minPitch: 0,
+        maxPitch: 85,
+        bearing: initialBearing,
+        antialias: true
+    });
+
+
+
+    const basemapToggle = document.querySelectorAll('input[name="basemap"]');
+    const buildingsToggle = document.getElementById('buildings-toggle');
+    const hamEmittersToggle = document.getElementById('ham-emitters-toggle');
+   
+    //const stationsToggle = document.getElementById('stations-toggle');
+    const boundaryToggle = document.getElementById('boundary-toggle');
+    //const otherToggle = document.getElementById('other-toggle');
+    const buffersToggle = document.getElementById('buffers-toggle');
+   // const stelcoOperationsToggle = document.getElementById('stelco-operations-toggle');
+   // const emissionsSourcesToggle = document.getElementById('emissions-sources-toggle');
+    const proposedMonitoringToggle = document.getElementById('proposed-monitoring-toggle'); // Proposed Monitoring Toggle
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const mapOverlay = document.getElementById('mapOverlay');
+    const toggleButton = document.getElementById('toggleButton');
+
+    // Collapsible box toggle logic
+    toggleButton.addEventListener('click', () => {
+        const isCollapsed = mapOverlay.classList.toggle('collapsed');
+        toggleButton.textContent = isCollapsed ? '▼' : '▲';
+    });
+
+    const updateBasemap = () => {
+        const basemap = document.querySelector('input[name="basemap"]:checked').value;
+        map.setLayoutProperty('esri-tiles', 'visibility', basemap === 'esri' ? 'visible' : 'none');
+        map.setLayoutProperty('osm-tiles', 'visibility', basemap === 'osm' ? 'visible' : 'none');
+        
+    };
+
+    basemapToggle.forEach(radio => {
+        radio.addEventListener('change', updateBasemap);
+    });
+
+    buildingsToggle.addEventListener('change', () => {
+        if (buildingsToggle.checked) {
+            map.setLayoutProperty('fused-buildings', 'visibility', 'visible');
+        } else {
+            map.setLayoutProperty('fused-buildings', 'visibility', 'none');
+        }
+    });
+
+  //  stationsToggle.addEventListener('change', () => {
+    //    const visibility = stationsToggle.checked ? 'visible' : 'none';
+       // map.setLayoutProperty('stations', 'visibility', visibility);
+      //  map.setLayoutProperty('stations-labels', 'visibility', visibility);
+        //map.setLayoutProperty('station-lines', 'visibility', visibility);  // Also toggle lines visibility
+    //});
+
+    hamEmittersToggle.addEventListener('change', () => {
+        const visibility = hamEmittersToggle.checked ? 'visible' : 'none';
+        map.setLayoutProperty('ham-emitters', 'visibility', visibility);
+        map.setLayoutProperty('ham-emitters-outline', 'visibility', visibility);
+        map.setLayoutProperty('ham-emitters-labels', 'visibility', visibility);
+    });
+
+    
+
+   boundaryToggle.addEventListener('change', () => {
+    const visibility = boundaryToggle.checked ? 'visible' : 'none';
+    map.setLayoutProperty('boundary', 'visibility', visibility);
+    map.setLayoutProperty('boundary-outline', 'visibility', visibility);  // Added this line
+    map.setLayoutProperty('boundary-labels', 'visibility', visibility);
+});
+
+
+ //   otherToggle.addEventListener('change', () => {
+    //    const visibility = otherToggle.checked ? 'visible' : 'none';
+    //    map.setLayoutProperty('other', 'visibility', visibility);
+    //    map.setLayoutProperty('other-labels', 'visibility', visibility);
+   //     map.setLayoutProperty('other-outline', 'visibility', visibility);
+   // });
+
+   
+
+    
+
+    buffersToggle.addEventListener('change', () => {
+        const visibility = buffersToggle.checked ? 'visible' : 'none';
+        map.setLayoutProperty('buffer-1km', 'visibility', visibility);
+        map.setLayoutProperty('buffer-2km', 'visibility', visibility);
+        map.setLayoutProperty('buffer-3km', 'visibility', visibility);
+    });
+
+ //stelcoOperationsToggle.addEventListener('change', () => {
+//    const visibility = stelcoOperationsToggle.checked ? 'visible' : 'none';
+ //   map.setLayoutProperty('stelco-operations', 'visibility', visibility);
+  //  map.setLayoutProperty('stelco-operations-outline', 'visibility', visibility);
+ //   map.setLayoutProperty('stelco-operations-labels', 'visibility', visibility);
+
+    // ✅ Multi-line Label: "Area" on top, "Area2" below
+//    map.setLayoutProperty('stelco-operations-labels', 'text-field', ['concat', ['get', 'Area'], '\n', ['get', 'Area2']]);
+
+    // ✅ Ensure only ONE label per polygon
+ //   map.setLayoutProperty('stelco-operations-labels', 'symbol-placement', 'point');  // Forces single placement
+ //   map.setLayoutProperty('stelco-operations-labels', 'symbol-sort-key', ['get', 'Area']); // Helps avoid duplication
+ //   map.setLayoutProperty('stelco-operations-labels', 'text-max-width', 8);  // Prevents stretching text across the shape
+ //   map.setLayoutProperty('stelco-operations-labels', 'text-ignore-placement', false);  // Avoids extra placements
+
+    // ✅ Prevent Overlaps & Adjust Visibility
+  //  map.setLayoutProperty('stelco-operations-labels', 'text-allow-overlap', false);
+  //  map.setLayoutProperty('stelco-operations-labels', 'text-size', 14);
+ //   map.setLayoutProperty('stelco-operations-labels', 'text-offset', [0, 1.2]); // Moves text slightly up
+//});
+
+
+//    emissionsSourcesToggle.addEventListener('change', () => {
+  //      const visibility = emissionsSourcesToggle.checked ? 'visible' : 'none';
+  //      map.setLayoutProperty('emissions-sources', 'visibility', visibility);
+  //      map.setLayoutProperty('emissions-sources-labels', 'visibility', visibility);
+  //  });
+
+    proposedMonitoringToggle.addEventListener('change', () => {
+        const visibility = proposedMonitoringToggle.checked ? 'visible' : 'none';
+        map.setLayoutProperty('proposed-monitoring', 'visibility', visibility);
+        //map.setLayoutProperty('proposed-monitoring-line', 'visibility', visibility); // Also 
+        map.setLayoutProperty('proposed-monitoring-labels', 'visibility', visibility);
+    });
+
+    let marker; 
+
+    map.on('load', () => {
+        loadingSpinner.style.display = 'none';
+
+
+
+        fetch('https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/MPAC_Land_Use_Cleaned.geojson')
+            .then(response => response.json())
+            .then(data => {
+                const uniqueCompanies = [...new Set(data.features.map(feature => feature.properties.PROPERTY_3))];
+                const filterSelect = document.getElementById("filterSelect");
+                uniqueCompanies.forEach(property_3 => {
+                    const option = document.createElement("option");
+                    option.value = property_3;
+                    option.text = property_3;
+                    filterSelect.appendChild(option);
+                });
+                map.getSource('ham-emitters').setData(data);
+            });
+
+        document.getElementById('filterSelect').addEventListener('change', (event) => {
+            const selectedCompany = event.target.value;
+            if (selectedCompany === 'All') {
+                map.setFilter('ham-emitters', null);
+                map.setFilter('ham-emitters-labels', null);
+            } else {
+                const filter = ['==', ['get', 'PROPERTY_3'], selectedCompany];
+                map.setFilter('ham-emitters', filter);
+                map.setFilter('ham-emitters-labels', filter);
+            }
+
+          //  map.moveLayer('boundary'); // Place 'stations' above 'ham-emitters-outline'
+
+});
+   
+
+
+        map.on('click', 'ham-emitters', (e) => {
+            const properties = e.features[0].properties;
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`<strong>Land Use Type: ${properties.PROPERTY_3}`)
+                .addTo(map);
+        });
+
+        
+        
+// map.on('click', 'other', (e) => {
+ //           const coordinates = e.lngLat; // Get clicked coordinates
+ //           const properties = e.features[0].properties; // Get the boundary's properties
+
+            // Show a popup with owner information (assuming the boundary has an 'Owner' property)
+   //         new maplibregl.Popup()
+   //             .setLngLat(coordinates)
+    //            .setHTML(`<strong>Owner:</strong> ${properties.Owner || 'Unknown'}`) // You can replace 'Owner' with the actual property name
+    //            .addTo(map);
+    //    });
+
+
+const panoModal = document.createElement('div');
+panoModal.id = 'pano-modal';
+panoModal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9); display: none;
+    justify-content: center; align-items: center; 
+    z-index: 1000;
+`;
+
+panoModal.innerHTML = `
+    <button id="close-pano-btn" onclick="closePano()" style="
+        position: absolute; top: 15px; right: 20px;
+        background: rgba(255, 255, 255, 0.8);
+        border: none; padding: 8px 12px;
+        font-size: 20px; font-weight: bold;
+        color: black; cursor: pointer;
+        border-radius: 5px; z-index: 1001;
+        transition: background 0.2s ease-in-out;
+    " onmouseover="this.style.background='rgba(255, 255, 255, 1)'" 
+      onmouseout="this.style.background='rgba(255, 255, 255, 0.8)'">
+        ✖
+    </button>
+
+    <div id="pano-container" style="width: 98%; height: 98%;"></div>
+`;
+
+document.body.appendChild(panoModal);
+
+// Ensure closePano function is defined
+//window.closePano = function() {
+ //   document.getElementById("pano-modal").style.display = "none";
+//};
+
+// ✅ Ensure functions are globally accessible
+window.viewer = null; // Global viewer instance
+
+window.openPano = function(panoUrl) {
+    document.getElementById("pano-modal").style.display = "flex";
+
+    if (!window.viewer) {
+        // Initialize the Pannellum viewer
+        window.viewer = pannellum.viewer('pano-container', {
+            "type": "equirectangular",
+            "panorama": panoUrl,
+            "autoLoad": true
+        });
+    } else {
+        // Load a new scene if already initialized
+        window.viewer.loadScene({
+            "type": "equirectangular",
+            "panorama": panoUrl
+        });
+    }
+};
+
+window.closePano = function() {
+    document.getElementById("pano-modal").style.display = "none";
+};
+
+// ✅ Click event for "proposed-monitoring" popups
+map.on('click', 'proposed-monitoring', (e) => {
+    const properties = e.features[0].properties;
+    console.log('Properties:', properties);
+
+    // ✅ Parse the ImageURLs property if it exists
+    let imageUrls = [];
+    if (properties.ImageURLs) {
+        try {
+            imageUrls = JSON.parse(properties.ImageURLs);
+        } catch (error) {
+            console.error('Failed to parse ImageURLs:', error);
+        }
+    }
+
+    console.log('Image URLs:', imageUrls);
+
+    let popupContent = '';
+
+    // ✅ Add image gallery if images exist
+    if (imageUrls.length > 0) {
+        popupContent += '<div class="popup-gallery" style="display: flex; overflow-x: scroll; gap: 5px;">';
+        imageUrls.forEach(url => {
+            console.log('Adding image URL:', url);
+            popupContent += `<a href="${url}" target="_blank">
+                                <img src="${url}" alt="Image" style="width: 100px; height: 100px; border-radius: 5px;">
+                             </a>`;
+        });
+        popupContent += '</div>';
+    } else {
+        popupContent += '<em>No images available.</em>';
+    }
+
+    // ✅ Add site details
+    popupContent += `<br><strong>${properties.Name}</strong><br>${properties.Comments || ''}`;
+
+    // ✅ If `PanoURL` exists, add a "Show 360° Pano" button
+    if (properties.PanoURL) {
+        popupContent += `<br><br><button style="padding: 8px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 5px;"
+                          onclick="openPano('${properties.PanoURL}')">Show 360° Pano</button>`;
+    }
+
+    // ✅ Show the popup with all content
+    new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(popupContent)
+        .addTo(map);
+});
+
+
+/*
+
+map.on('click', 'emissions-sources', (e) => {
+    const coordinates = e.lngLat; // Get clicked point coordinates
+    const properties = e.features[0].properties; // Get all properties
+
+    // Extract Name and Pollutants
+    const name = properties.Name || 'Unknown';
+    let pollutants = properties.Pollutants || [];
+
+    // ✅ Fix: Convert stringified JSON array to real array if needed
+    try {
+        pollutants = JSON.parse(pollutants);
+    } catch (e) {
+        if (typeof pollutants === "string") {
+            pollutants = [pollutants]; // Convert single string into an array
+        }
+    }
+
+    // ✅ Format pollutants as a bullet list
+    const pollutantsList = pollutants.length > 0
+        ? pollutants.map(p => `• ${p}`).join('<br>')
+        : 'No data available';
+
+    // ✅ Create buttons for Drone2D and Drone3D if they exist
+    let droneButtons = '';
+    if (properties.Drone2D) {
+        droneButtons += `
+            <br><br>
+            <a href="${properties.Drone2D}" target="_blank" style="
+                display: inline-block;
+                padding: 8px 12px;
+                background: #007bff;
+                color: white;
+                text-decoration: none;
+                font-weight: bold;
+                border-radius: 5px;
+                margin-right: 8px;
+                transition: background 0.3s ease;
+            " onmouseover="this.style.background='#0056b3'" 
+              onmouseout="this.style.background='#007bff'">
+                View 2D Map
+            </a>
+        `;
+    }
+
+    if (properties.Drone3D) {
+        droneButtons += `
+            <a href="${properties.Drone3D}" target="_blank" style="
+                display: inline-block;
+                padding: 8px 12px;
+                background: #28a745;
+                color: white;
+                text-decoration: none;
+                font-weight: bold;
+                border-radius: 5px;
+                transition: background 0.3s ease;
+            " onmouseover="this.style.background='#218838'" 
+              onmouseout="this.style.background='#28a745'">
+                View 3D Model
+            </a>
+        `;
+    }
+
+    // ✅ Create popup content
+    const popupContent = `
+        <strong><u>${name}</u></strong><br>
+        <strong>Pollutants:</strong><br>${pollutantsList}
+        ${droneButtons} <!-- Insert buttons only if Drone2D or Drone3D exist -->
+    `;
+
+    // ✅ Show the popup
+    new maplibregl.Popup()
+        .setLngLat(coordinates)
+        .setHTML(popupContent)
+        .addTo(map);
+});
+
+*/
+
+  //      // Add event listener for popup on "Stelco Operations Areas" polygons
+  // map.on('click', 'stelco-operations', (e) => {
+  //  const properties = e.features[0].properties;
+//
+  //  new maplibregl.Popup()
+    //    .setLngLat(e.lngLat)
+      //  .setHTML(`
+        //    <strong>Area:</strong> ${properties.Area}<br>
+     //       <strong>Area2:</strong> ${properties.Area2}
+      //  `)
+     //   .addTo(map);
+//});
+
+    // Generate buffer zones using Turf.js
+fetch('https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/GFL_Property.geojson')
+    .then(response => response.json())
+    .then(boundaryData => {
+        if (!boundaryData || !boundaryData.features || boundaryData.features.length === 0) {
+            console.error('No features found in the GeoJSON file.');
+            return;
+        }
+
+        // Extract all geometries from the GeoJSON file
+        const geometries = boundaryData.features.map(feature => feature.geometry);
+
+        // Combine geometries into a single MultiPolygon
+        const combinedPolygons = {
+            type: "Feature",
+            geometry: {
+                type: "MultiPolygon",
+                coordinates: geometries.map(geometry => geometry.coordinates)
+            },
+            properties: {}
+        };
+        
+        // Generate buffers around the combined MultiPolygon
+        const buffer1km = turf.buffer(combinedPolygons, 0.5, { units: 'kilometers' });
+        const buffer2km = turf.buffer(combinedPolygons, 1, { units: 'kilometers' });
+        const buffer3km = turf.buffer(combinedPolygons, 1.5, { units: 'kilometers' });
+
+        // Add buffer sources
+        map.addSource('buffer-1km', { 'type': 'geojson', 'data': buffer1km });
+        map.addSource('buffer-2km', { 'type': 'geojson', 'data': buffer2km });
+        map.addSource('buffer-3km', { 'type': 'geojson', 'data': buffer3km });
+
+        // Add buffer layers to the map
+        map.addLayer({
+            'id': 'buffer-1km',
+            'type': 'line',
+            'source': 'buffer-1km',
+            'layout': { 'visibility': 'none' },
+            'paint': { 'line-color': 'red', 'line-width': 2 }
+        });
+
+        map.addLayer({
+            'id': 'buffer-2km',
+            'type': 'line',
+            'source': 'buffer-2km',
+            'layout': { 'visibility': 'none' },
+            'paint': { 'line-color': 'red', 'line-width': 2 }
+        });
+
+        map.addLayer({
+            'id': 'buffer-3km',
+            'type': 'line',
+            'source': 'buffer-3km',
+            'layout': { 'visibility': 'none' },
+            'paint': { 'line-color': 'red', 'line-width': 2 }
+        });
+
+        console.log('Buffers added successfully!');
+    })
+    .catch(error => console.error('Error fetching or processing GeoJSON:', error));
+
+    });
+
+    document.getElementById('draggableMarkerHome').addEventListener('click', () => {
+        if (marker) {
+            marker.remove();
+            marker = null;
+            document.getElementById('coordinates').style.display = 'none';
+        } else {
+            const center = map.getCenter();
+            marker = new maplibregl.Marker({ draggable: true })
+                .setLngLat(center)
+                .addTo(map);
+
+            marker.on('dragend', () => {
+                const lngLat = marker.getLngLat();
+                document.getElementById('coordinates').style.display = 'block';
+                document.getElementById('coordinates').innerHTML =
+                    `Longitude: ${lngLat.lng.toFixed(4)}<br />Latitude: ${lngLat.lat.toFixed(4)}<br /><a href="https://www.google.com/maps?layer=c&cbll=${lngLat.lat.toFixed(4)},${lngLat.lng.toFixed(4)}" target="_blank">Open in Google Street View</a>`;
+            });
+        }
+    });
+
+    document.getElementById('homeButton').addEventListener('click', () => {
+        map.flyTo({
+            center: initialCenter,
+            zoom: initialZoom,
+            pitch: pitchAngle,
+            bearing: initialBearing
+        });
+    });
+
+    var nav = new maplibregl.NavigationControl({
+        showCompass: true,
+        showZoom: true
+    });
+    map.addControl(nav, 'top-left');
+
+    // Add Scale Control to the bottom-left corner
+    var scale = new maplibregl.ScaleControl({
+        maxWidth: 150,
+        unit: 'metric'
+    });
+    map.addControl(scale, 'bottom-left');
+
+    const toggleButtonLegend = document.getElementById('toggleButtonLegend');
+const legendContent = document.getElementById('legendContent');
+
+toggleButtonLegend.addEventListener('click', () => {
+    const isCollapsed = legendContent.classList.toggle('collapsed');
+    toggleButtonLegend.textContent = isCollapsed ? '▲' : '▼'; // Change arrow direction
+});
+
+
+// Create a new GeolocateControl
+const geolocateControl = new maplibregl.GeolocateControl({
+    positionOptions: {
+        enableHighAccuracy: true
+    },
+    trackUserLocation: true,
+    showUserHeading: true
+});
+
+// Create a separate container div for GeolocateControl
+const geolocateContainer = document.createElement('div');
+geolocateContainer.className = 'custom-geolocate-control';
+document.body.appendChild(geolocateContainer);
+
+// Add the control to the custom container
+geolocateContainer.appendChild(geolocateControl.onAdd(map));
+
+
+
+
+
+   
+    const searchContainer = document.getElementById('searchContainer');
+    const searchIcon = document.getElementById('searchIcon');
+    const clearButton = document.getElementById('clearButton');
+    const addressSearch = document.getElementById('addressSearch');
+
+    let searchMarkers = [];  // Array to hold all markers
+
+    // Toggle visibility of the search box
+    searchIcon.addEventListener('click', () => {
+        searchContainer.classList.toggle('expanded');
+        addressSearch.focus();
+    });
+
+    // Clear search box and remove all markers
+    clearButton.addEventListener('click', () => {
+        addressSearch.value = '';
+        searchMarkers.forEach(marker => marker.remove());
+        searchMarkers = [];
+    });
+
+    // Handle Enter key press
+    addressSearch.addEventListener('keydown', async (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Prevents form submission
+
+            const query = addressSearch.value.trim();
+            if (!query) return; // Do nothing if search box is empty
+
+            // Split the query by semicolon to allow multiple searches
+            const locations = query.split(';').map(loc => loc.trim()).filter(Boolean);
+
+            for (const loc of locations) {
+                // Make a request to Nominatim API for each location
+                const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(loc)}&format=json&limit=1`;
+
+                try {
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data.length > 0) {
+                        const location = data[0];
+                        const lat = parseFloat(location.lat);
+                        const lon = parseFloat(location.lon);
+
+                        // Add a new marker to the map with a popup containing the address
+                        const marker = new maplibregl.Marker({ color: 'orange' })  // Make the marker RED
+                            .setLngLat([lon, lat])
+                            .setPopup(new maplibregl.Popup().setHTML(`
+                                <strong>Address:</strong> ${location.display_name}<br>
+                                <strong>Latitude:</strong> ${lat.toFixed(5)}<br>
+                                <strong>Longitude:</strong> ${lon.toFixed(5)}
+                            `))
+                            .addTo(map);
+
+                        // Show the popup immediately
+                        marker.getPopup().addTo(map);
+
+                        // Save the marker to the array
+                        searchMarkers.push(marker);
+
+                        // Fly to the last location
+                        if (locations.indexOf(loc) === locations.length - 1) {
+                            map.flyTo({ center: [lon, lat], zoom: 14 });
+                        }
+                    } else {
+                        alert(`Location "${loc}" not found. Please try again.`);
+                    }
+                } catch (error) {
+                    console.error('Error fetching location:', error);
+                    alert("Error fetching location. Please try again.");
+                }
+            }
+        }
+    });
+
+
+
+</script>
+</body>
+</html>
