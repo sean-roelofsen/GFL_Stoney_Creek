@@ -1,3 +1,6 @@
+[build]
+  publish = "."  # Replace with the name of the folder that has index.html, if it's just the root directory use "." 
+
 [[headers]]
   for = "/*"  # Protects all files in your app
   [headers.values]
