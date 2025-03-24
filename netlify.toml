@@ -1,0 +1,7 @@
+[build]
+  publish = "public"  # Or "." if your index.html is in the root
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Basic-Auth = "admin:wcr_tss_gfl"
