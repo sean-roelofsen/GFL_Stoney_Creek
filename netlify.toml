@@ -1,5 +1,5 @@
 [build]
-  publish = "public"  # Or "." if your index.html is in the root
+  publish = "."  # Or "." if your index.html is in the root
 
 [[headers]]
   for = "/*"
