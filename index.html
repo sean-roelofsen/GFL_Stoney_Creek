@@ -1022,7 +1022,7 @@ map.on('click', 'proposed-monitoring', (e) => {
     }
 
     // ✅ Add site details
-    popupContent += `<br><strong>${properties.Name}</strong><br>${properties.Comments || ''}`;
+    popupContent += `<br><strong>${properties.Station}</strong><br>${properties.Measurements || ''}`;
 
     // ✅ If `PanoURL` exists, add a "Show 360° Pano" button
     if (properties.PanoURL) {
