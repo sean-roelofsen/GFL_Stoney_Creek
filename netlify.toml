@@ -1,0 +1,4 @@
+[[headers]]
+  for = "/*"  # Protects all files in your app
+  [headers.values]
+    Basic-Auth = "admin:wcr_tss_gfl"
