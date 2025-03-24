@@ -335,10 +335,16 @@
 
 
 <script>
- // var password = prompt("Enter password:");
-   //     if (password !== "wcr_tss_gfl") {
-     //       document.body.innerHTML = "<h1>Unauthorized Access</h1><p>Wrong password. Refresh to try again.</p>";
-      //  }
+   if (localStorage.getItem("authenticated") !== "true") {
+        // Prompt for password
+        var password = prompt("Enter password:");
+        
+        if (password === "wcr_tss_gfl") { // Replace this with your password
+            localStorage.setItem("authenticated", "true");  // Store authentication status
+        } else {
+            document.body.innerHTML = "<h1>Unauthorized Access</h1><p>Wrong password. Refresh to try again.</p>";
+        }
+    }
   
     const MAPTILER_KEY = 'u5NbqWtpP6uBHml4hWYU';
     const initialCenter = [-79.7764, 43.1968]; 
