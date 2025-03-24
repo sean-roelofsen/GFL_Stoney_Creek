@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <title>Air Monitoring @ GFL Stoney Creek</title>
-  <meta property="og:description" content="Air Monitoring @ GFL Stoney Creek" />
+  <meta property="og:description" content="Use extrusions to display buildings' height in 3D." />
   <meta charset='utf-8'>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css' />
@@ -273,15 +273,26 @@
   </div>
   
   <div style="background-color: #f0f0f0; padding: 5px; border: 1px solid #b0b0b0; border-radius: 4px;">
-    <label class="layer-toggle"><input type="checkbox" id="boundary-toggle" checked> GFL Stoney Creek Property</label><br>
-   <!-- <label class="layer-toggle"><input type="checkbox" id="stelco-operations-toggle"> Stelco Operations Areas</label><br>
+<label class="layer-toggle">
+    <input type="checkbox" id="boundary-toggle" checked> GFL Stoney Creek Property 
+    <span style="color: #FF00FF; font-size: 1.3em;">■</span>
+</label><br>
+
+   <!-- <label class="layer-toggle"><input type="checkbox" id="boundary-toggle" checked> GFL Stoney Creek Property</label><br>
+    <label class="layer-toggle"><input type="checkbox" id="stelco-operations-toggle"> Stelco Operations Areas</label><br>
     <label class="layer-toggle"><input type="checkbox" id="emissions-sources-toggle"> Stelco Emissions Sources</label><br>
     <label class="layer-toggle"><input type="checkbox" id="other-toggle"> Other Industry (OPG, I-Oil)</label><br>
     -->
   </div>
   
   <div style="background-color: #ffffff; padding: 5px;">
-    <label class="layer-toggle"><input type="checkbox" id="proposed-monitoring-toggle" checked> Air Monitoring Locations</label><br>
+    <!--<label class="layer-toggle"><input type="checkbox" id="proposed-monitoring-toggle" checked> Air Monitoring Locations &#128308;</label><br>
+    -->
+    <label class="layer-toggle">
+    <input type="checkbox" id="proposed-monitoring-toggle" checked> Air Monitoring Locations 
+    <span style="font-size: 0.60em;">&#128308;</span>
+</label><br>
+
     <label class="layer-toggle"><input type="checkbox" id="buffers-toggle"> Buffers (500-1000-1500m)</label><br>
   </div>
 </div>
@@ -335,7 +346,9 @@
 
 
 <script>
-   if (localStorage.getItem("authenticated") !== "true") {
+// Check if the user is already authenticated
+// Check if the user is already authenticated
+    if (localStorage.getItem("authenticated") !== "true") {
         // Prompt for password
         var password = prompt("Enter password:");
         
@@ -345,7 +358,9 @@
             document.body.innerHTML = "<h1>Unauthorized Access</h1><p>Wrong password. Refresh to try again.</p>";
         }
     }
-  
+   
+
+
     const MAPTILER_KEY = 'u5NbqWtpP6uBHml4hWYU';
     const initialCenter = [-79.7764, 43.1968]; 
     // Adjust zoom level dynamically based on screen width
@@ -386,7 +401,7 @@
                 
                 'boundary': {
                     'type': 'geojson',
-                    'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/GFL_Property.geojson'
+                    'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/GFL_Property_2.geojson'
                 },
                // 'stelco-operations': {
                  //   'type': 'geojson',
@@ -770,7 +785,7 @@
     //const stationsToggle = document.getElementById('stations-toggle');
     const boundaryToggle = document.getElementById('boundary-toggle');
     //const otherToggle = document.getElementById('other-toggle');
-    const buffersToggle = document.getElementById('buffers-toggle');
+    //const buffersToggle = document.getElementById('buffers-toggle');
    // const stelcoOperationsToggle = document.getElementById('stelco-operations-toggle');
    // const emissionsSourcesToggle = document.getElementById('emissions-sources-toggle');
     const proposedMonitoringToggle = document.getElementById('proposed-monitoring-toggle'); // Proposed Monitoring Toggle
@@ -838,13 +853,7 @@
 
     
 
-    buffersToggle.addEventListener('change', () => {
-        const visibility = buffersToggle.checked ? 'visible' : 'none';
-        map.setLayoutProperty('buffer-1km', 'visibility', visibility);
-        map.setLayoutProperty('buffer-2km', 'visibility', visibility);
-        map.setLayoutProperty('buffer-3km', 'visibility', visibility);
-    });
-
+  
  //stelcoOperationsToggle.addEventListener('change', () => {
 //    const visibility = stelcoOperationsToggle.checked ? 'visible' : 'none';
  //   map.setLayoutProperty('stelco-operations', 'visibility', visibility);
@@ -1140,70 +1149,123 @@ map.on('click', 'emissions-sources', (e) => {
      //       <strong>Area2:</strong> ${properties.Area2}
       //  `)
      //   .addTo(map);
+
 //});
 
-    // Generate buffer zones using Turf.js
-fetch('https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/GFL_Property.geojson')
+ // ✅ Toggle Functionality for Buffers
+const buffersToggle = document.getElementById('buffers-toggle');
+
+buffersToggle.addEventListener('change', () => {
+    const visibility = buffersToggle.checked ? 'visible' : 'none';
+    
+    // Toggle Red Buffers (Polygon 1)
+    for (let i = 1; i <= 3; i++) {
+        map.setLayoutProperty(`buffer1-${i}`, 'visibility', visibility);
+        map.setLayoutProperty(`buffer1-${i}-label`, 'visibility', visibility);  // Toggle label visibility
+    }
+
+    // Toggle Yellow Buffers (Polygon 2)
+    for (let i = 1; i <= 3; i++) {
+        map.setLayoutProperty(`buffer2-${i}`, 'visibility', visibility);
+        map.setLayoutProperty(`buffer2-${i}-label`, 'visibility', visibility);  // Toggle label visibility
+    }
+});
+
+
+
+   // Generate buffer zones using Turf.js
+fetch('https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/GFL_Property_2.geojson')
     .then(response => response.json())
     .then(boundaryData => {
-        if (!boundaryData || !boundaryData.features || boundaryData.features.length === 0) {
-            console.error('No features found in the GeoJSON file.');
+        if (!boundaryData || !boundaryData.features || boundaryData.features.length < 2) {
+            console.error('The GeoJSON file must contain at least two polygons.');
             return;
         }
 
-        // Extract all geometries from the GeoJSON file
-        const geometries = boundaryData.features.map(feature => feature.geometry);
-
-        // Combine geometries into a single MultiPolygon
-        const combinedPolygons = {
-            type: "Feature",
-            geometry: {
-                type: "MultiPolygon",
-                coordinates: geometries.map(geometry => geometry.coordinates)
-            },
-            properties: {}
-        };
+        // Treat first polygon as ObjectID 1 and second polygon as ObjectID 2
+        const polygon1 = boundaryData.features[0];
+        const polygon2 = boundaryData.features[1];
         
-        // Generate buffers around the combined MultiPolygon
-        const buffer1km = turf.buffer(combinedPolygons, 0.5, { units: 'kilometers' });
-        const buffer2km = turf.buffer(combinedPolygons, 1, { units: 'kilometers' });
-        const buffer3km = turf.buffer(combinedPolygons, 1.5, { units: 'kilometers' });
+        const distances = [0.5, 1, 1.5];
+        const labels = ['500m', '1000m', '1500m'];
 
-        // Add buffer sources
-        map.addSource('buffer-1km', { 'type': 'geojson', 'data': buffer1km });
-        map.addSource('buffer-2km', { 'type': 'geojson', 'data': buffer2km });
-        map.addSource('buffer-3km', { 'type': 'geojson', 'data': buffer3km });
+        // Generate buffers for Polygon 1 (Red Buffers)
+        distances.forEach((distance, index) => {
+            const buffer = turf.buffer(polygon1, distance, { units: 'kilometers' });
+            const bufferId = `buffer1-${index + 1}`;
+            
+            map.addSource(bufferId, { 'type': 'geojson', 'data': buffer });
 
-        // Add buffer layers to the map
-        map.addLayer({
-            'id': 'buffer-1km',
-            'type': 'line',
-            'source': 'buffer-1km',
-            'layout': { 'visibility': 'none' },
-            'paint': { 'line-color': 'red', 'line-width': 2 }
+            // Add the buffer line
+            map.addLayer({
+                'id': bufferId,
+                'type': 'line',
+                'source': bufferId,
+                'layout': { 'visibility': 'none' },
+                'paint': { 'line-color': 'red', 'line-width': 2 }
+            });
+
+            // Add label for the buffer
+            map.addLayer({
+                'id': `${bufferId}-label`,
+                'type': 'symbol',
+                'source': bufferId,
+                'layout': {
+                    'text-field': labels[index],
+                    'text-size': 12,
+                    'symbol-placement': 'line',
+                    'visibility': 'none'
+                },
+                'paint': {
+                    'text-color': 'black',  // Make label text black for better visibility
+                'text-halo-color': 'white', // Optional: Add white halo for even better visibility
+                'text-halo-width': 2 // Thickness of the halo
+                }
+            });
         });
 
-        map.addLayer({
-            'id': 'buffer-2km',
-            'type': 'line',
-            'source': 'buffer-2km',
-            'layout': { 'visibility': 'none' },
-            'paint': { 'line-color': 'red', 'line-width': 2 }
+        // Generate buffers for Polygon 2 (Yellow Buffers)
+        distances.forEach((distance, index) => {
+            const buffer = turf.buffer(polygon2, distance, { units: 'kilometers' });
+            const bufferId = `buffer2-${index + 1}`;
+            
+            map.addSource(bufferId, { 'type': 'geojson', 'data': buffer });
+
+            // Add the buffer line
+            map.addLayer({
+                'id': bufferId,
+                'type': 'line',
+                'source': bufferId,
+                'layout': { 'visibility': 'none' },
+                'paint': { 'line-color': 'yellow', 'line-width': 2 }
+            });
+
+            // Add label for the buffer
+            map.addLayer({
+                'id': `${bufferId}-label`,
+                'type': 'symbol',
+                'source': bufferId,
+                'layout': {
+                    'text-field': labels[index],
+                    'text-size': 12,
+                    'symbol-placement': 'line',
+                    'visibility': 'none'
+                },
+                'paint': {
+                    'text-color': 'black',  // Make label text black for better visibility
+                'text-halo-color': 'white', // Optional: Add white halo for even better visibility
+                'text-halo-width': 2 // Thickness of the halo
+                }
+            });
         });
 
-        map.addLayer({
-            'id': 'buffer-3km',
-            'type': 'line',
-            'source': 'buffer-3km',
-            'layout': { 'visibility': 'none' },
-            'paint': { 'line-color': 'red', 'line-width': 2 }
-        });
-
-        console.log('Buffers added successfully!');
+        console.log('Buffers and labels added successfully!');
     })
     .catch(error => console.error('Error fetching or processing GeoJSON:', error));
 
-    });
+
+});
+
 
     document.getElementById('draggableMarkerHome').addEventListener('click', () => {
         if (marker) {
@@ -1224,6 +1286,8 @@ fetch('https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/he
             });
         }
     });
+
+
 
     document.getElementById('homeButton').addEventListener('click', () => {
         map.flyTo({
