@@ -875,6 +875,16 @@
             }
         });
     }
+     // ✅ Ensure 'proposed-monitoring' and 'proposed-monitoring-labels' are on top
+    map.once('idle', () => {  // Ensure the map has fully loaded
+        if (map.getLayer('proposed-monitoring')) {
+            map.moveLayer('proposed-monitoring');
+        }
+
+        if (map.getLayer('proposed-monitoring-labels')) {
+            map.moveLayer('proposed-monitoring-labels');
+        }
+    });
 
     // ✅ Set initial visibility for ESRI and OSM layers
     map.setLayoutProperty('esri-tiles', 'visibility', 'visible');
