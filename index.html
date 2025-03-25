@@ -388,6 +388,20 @@
                     'minzoom': 0,
                     'maxzoom': 19
                 },
+              'esri-reference': {
+    'type': 'raster',
+    'tiles': ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+    'tileSize': 256,
+    'minzoom': 0,
+    'maxzoom': 19
+},  
+ 'esri-transportation': {
+        'type': 'raster',
+        'tiles': ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}'],
+        'tileSize': 256,
+        'minzoom': 0,
+        'maxzoom': 19
+    },
                 'ham-emitters': {
                     'type': 'geojson',
                     'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/MPAC_Land_Use_Cleaned_2.geojson'
@@ -778,7 +792,7 @@
 
 
 
-    const basemapToggle = document.querySelectorAll('input[name="basemap"]');
+    //const basemapToggle = document.querySelectorAll('input[name="basemap"]');
     const buildingsToggle = document.getElementById('buildings-toggle');
     const hamEmittersToggle = document.getElementById('ham-emitters-toggle');
    
@@ -798,18 +812,102 @@
         const isCollapsed = mapOverlay.classList.toggle('collapsed');
         toggleButton.textContent = isCollapsed ? '▼' : '▲';
     });
+    map.on('load', () => {
+    // ✅ Add ESRI Imagery Source
+    if (!map.getSource('esri-tiles')) {
+        map.addSource('esri-tiles', {
+            'type': 'raster',
+            'tiles': ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+            'tileSize': 256
+        });
+    }
 
-    const updateBasemap = () => {
-        const basemap = document.querySelector('input[name="basemap"]:checked').value;
-        map.setLayoutProperty('esri-tiles', 'visibility', basemap === 'esri' ? 'visible' : 'none');
-        map.setLayoutProperty('osm-tiles', 'visibility', basemap === 'osm' ? 'visible' : 'none');
-        
-    };
+    // ✅ Add ESRI Imagery Layer
+    if (!map.getLayer('esri-tiles')) {
+        map.addLayer({
+            'id': 'esri-tiles',
+            'type': 'raster',
+            'source': 'esri-tiles',
+            'layout': {
+                'visibility': 'visible'
+            }
+        });
+    }
 
-    basemapToggle.forEach(radio => {
-        radio.addEventListener('change', updateBasemap);
-    });
+    // ✅ Add ESRI Reference (Places/Labels) Source
+    if (!map.getSource('esri-reference')) {
+        map.addSource('esri-reference', {
+            'type': 'raster',
+            'tiles': ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+            'tileSize': 256
+        });
+    }
 
+    // ✅ Add ESRI Reference Layer (Places/Labels)
+    if (!map.getLayer('esri-reference')) {
+        map.addLayer({
+            'id': 'esri-reference',
+            'type': 'raster',
+            'source': 'esri-reference',
+            'layout': {
+                'visibility': 'visible'
+            }
+        });
+    }
+
+    // ✅ Add ESRI Transportation (Roads/Streets) Source
+    if (!map.getSource('esri-transportation')) {
+        map.addSource('esri-transportation', {
+            'type': 'raster',
+            'tiles': ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}'],
+            'tileSize': 256
+        });
+    }
+
+    // ✅ Add ESRI Transportation Layer (Roads/Streets)
+    if (!map.getLayer('esri-transportation')) {
+        map.addLayer({
+            'id': 'esri-transportation',
+            'type': 'raster',
+            'source': 'esri-transportation',
+            'layout': {
+                'visibility': 'visible'
+            }
+        });
+    }
+
+    // ✅ Set initial visibility for ESRI and OSM layers
+    map.setLayoutProperty('esri-tiles', 'visibility', 'visible');
+    map.setLayoutProperty('esri-reference', 'visibility', 'visible');
+    map.setLayoutProperty('esri-transportation', 'visibility', 'visible');
+    map.setLayoutProperty('osm-tiles', 'visibility', 'none');
+});
+
+
+// Define the updateBasemap function
+const updateBasemap = () => { 
+    const basemap = document.querySelector('input[name="basemap"]:checked').value;
+
+    if (basemap === 'esri') {
+        map.setLayoutProperty('esri-tiles', 'visibility', 'visible');
+        map.setLayoutProperty('esri-reference', 'visibility', 'visible');
+        map.setLayoutProperty('esri-transportation', 'visibility', 'visible');
+        map.setLayoutProperty('osm-tiles', 'visibility', 'none');
+    } else if (basemap === 'osm') {
+        map.setLayoutProperty('esri-tiles', 'visibility', 'none');
+        map.setLayoutProperty('esri-reference', 'visibility', 'none');
+        map.setLayoutProperty('esri-transportation', 'visibility', 'none');
+        map.setLayoutProperty('osm-tiles', 'visibility', 'visible');
+    }
+};
+
+// Attach listeners to radio buttons
+const basemapToggle = document.querySelectorAll('input[name="basemap"]');
+basemapToggle.forEach(radio => {
+    radio.addEventListener('change', updateBasemap);
+});
+
+    
     buildingsToggle.addEventListener('change', () => {
         if (buildingsToggle.checked) {
             map.setLayoutProperty('fused-buildings', 'visibility', 'visible');
