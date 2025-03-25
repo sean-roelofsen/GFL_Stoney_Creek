@@ -390,7 +390,7 @@
                 },
                 'ham-emitters': {
                     'type': 'geojson',
-                    'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/MPAC_Land_Use_Cleaned.geojson'
+                    'data': 'https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/MPAC_Land_Use_Cleaned_2.geojson'
                 },
                 
                 
@@ -896,7 +896,7 @@
 
 
 
-        fetch('https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/MPAC_Land_Use_Cleaned.geojson')
+        fetch('https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/refs/heads/main/MPAC_Land_Use_Cleaned_2.geojson')
             .then(response => response.json())
             .then(data => {
                 const uniqueCompanies = [...new Set(data.features.map(feature => feature.properties.PROPERTY_3))];
