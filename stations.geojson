@@ -10,7 +10,8 @@
     "properties": {
     "Station":"GFL Lagoon",
     "Measurements":"TRS",
-    "Comments":""
+    "Comments":"",
+    "PanoURL": "https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/main/images_pano/DJI_0417.jpg"
     }
   },
   {
@@ -22,7 +23,8 @@
     "properties": {
     "Station":"GFL North",
     "Measurements":"TRS",
-    "Comments":"next to 29247"
+    "Comments":"next to 29247",
+    "PanoURL": "https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/main/images_pano/DJI_0420.jpg"
     }
   },
   {
@@ -34,7 +36,8 @@
     "properties": {
     "Station":"GFL SouthEast",
     "Measurements":"TRS",
-    "Comments":""
+    "Comments":"",
+    "PanoURL": "https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/main/images_pano/DJI_0424.jpg"
     }
   },
   {
@@ -46,7 +49,8 @@
     "properties": {
     "Station":"STN29247",
     "Measurements":"PM10, WD, WS, ATEM, RH, Rain",
-    "Comments":""
+    "Comments":"",
+    "PanoURL": "https://raw.githubusercontent.com/sean-roelofsen/GFL_Stoney_Creek/main/images_pano/DJI_0420.jpg"
     }
   }
 ]
